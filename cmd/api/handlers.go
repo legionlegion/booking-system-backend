@@ -1,11 +1,8 @@
 package main
 
 import (
-	"booking-backend/internal/models"
-	"encoding/json"
 	"fmt"
 	"net/http"
-	"time"
 )
 
 // all handlers take 2 arguements
@@ -22,27 +19,12 @@ func (app *application) Home(w http.ResponseWriter, r *http.Request) {
 	// 	Message: "Go Movies up and running",
 	// 	Version: "1.0.0",
 	// }
-
-	var bookings []models.Booking
-
-	booking1 := models.Booking {
-		Date: time.Now(),
-		StartTime: 8,
-		EndTime: 10,
-	}
-
-	bookings = append(bookings, booking1)
-
-	// out, err := json.Marshal(payload)
-	// if err != nil {
-	// 	fmt.Println(err)
-	// }
-
-	out, err := json.Marshal(booking1)
+	
+	bookings, err := app.DB.AllBookings()
 	if err != nil {
 		fmt.Println(err)
+		return
 	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	w.Write(out)
+
+	_ = app.writeJSON(w, http.StatusOK, bookings)
 } 
