@@ -30,7 +30,7 @@ CREATE TABLE public.Users (
 );
 
 -- Create the RequestedBooking table
-CREATE TABLE public.RequestedBooking (
+CREATE TABLE public.RequestedBookings (
   id SERIAL PRIMARY KEY,
   username VARCHAR(255) NOT NULL,
   name VARCHAR(255) NOT NULL,

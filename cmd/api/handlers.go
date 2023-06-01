@@ -1,6 +1,7 @@
 package main
 
 import (
+	"booking-backend/internal/models"
 	"fmt"
 	"net/http"
 )
@@ -28,3 +29,20 @@ func (app *application) Home(w http.ResponseWriter, r *http.Request) {
 
 	_ = app.writeJSON(w, http.StatusOK, bookings)
 } 
+
+func (app *application) InsertBooking (w http.ResponseWriter, r *http.Request) {
+	var booking models.Booking
+
+	err := app.readJSON(w, r, &booking)
+	if err != nil {
+		app.errorJSON(w, err)
+		return
+	}
+
+	resp := JSONResponse{
+		Error: false,
+		Message: "Booking requested",
+	}
+
+	app.writeJSON(w, http.StatusAccepted, resp)
+}
