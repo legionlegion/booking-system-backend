@@ -9,4 +9,5 @@ type DatabaseRepo interface {
 	Connection() *sql.DB
 	AllBookings() ([]*models.Booking, error)
 	InsertBookingRequest(booking models.Booking) (int, error)
+	GetUserByName(username string) (*models.User, error)
 }

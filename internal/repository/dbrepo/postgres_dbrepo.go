@@ -148,3 +148,24 @@ func (m *PostgresDBRepo) ApproveBooking(id int) error {
 
 	return nil
 }
+
+func (m *PostgresDBRepo) GetUserByName(username string) (*models.User, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
+	defer cancel()
+
+	query := `select id, username, password from users where username = $1`
+	var user models.User
+	row := m.DB.QueryRowContext(ctx, query, username)
+
+	err := row.Scan(
+		&user.ID,
+		&user.Username,
+		&user.Password,
+	)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &user, nil
+}
