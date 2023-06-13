@@ -1,4 +1,3 @@
-
 --
 -- PostgreSQL database dump
 --
@@ -36,8 +35,8 @@ CREATE TABLE public.RequestedBookings (
   name VARCHAR(255) NOT NULL,
   date DATE NOT NULL,
   unit_number VARCHAR(255) NOT NULL,
-  start_time TIME NOT NULL,
-  end_time TIME NOT NULL,
+  start_time TIMESTAMP NOT NULL,
+  end_time TIMESTAMP NOT NULL,
   purpose TEXT,
   facility TEXT,
   FOREIGN KEY (username) REFERENCES public.Users (username)
@@ -50,8 +49,8 @@ CREATE TABLE public.ApprovedBookings (
   name VARCHAR(255) NOT NULL,
   date DATE NOT NULL,
   unit_number VARCHAR(255) NOT NULL,
-  start_time TIME NOT NULL,
-  end_time TIME NOT NULL,
+  start_time TIMESTAMP NOT NULL,
+  end_time TIMESTAMP NOT NULL,
   purpose TEXT,
   facility TEXT,
   FOREIGN KEY (username) REFERENCES public.Users (username)

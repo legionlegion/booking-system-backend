@@ -21,7 +21,16 @@ func (app *application) routes() http.Handler {
 
 	mux.Get("/", app.Home)
 	mux.Post("/authenticate", app.authenticate)
+	mux.Post("/register", app.register)
 	mux.Get("/refresh", app.refreshToken)
 	mux.Get("/logout", app.logout)
+
+	mux.Route("/admin", func(mux chi.Router) {
+		mux.Use(app.authCheck)
+
+		mux.Get("/booking-management", app.BookingManagement)
+		mux.Put("/addBooking", app.InsertBooking)
+	})
+
 	return mux
 }

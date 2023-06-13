@@ -4,6 +4,8 @@ import (
 	"booking-backend/internal/models"
 	"context"
 	"database/sql"
+	"errors"
+	"log"
 	"time"
 
 	"golang.org/x/crypto/bcrypt"
@@ -19,7 +21,7 @@ func (m *PostgresDBRepo) Connection() *sql.DB {
 	return m.DB
 }
 
-func (m *PostgresDBRepo) AllBookings() ([]*models.Booking, error) {
+func (m *PostgresDBRepo) AllBookings() ([]*models.ApprovedBooking, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
 	defer cancel()
 
@@ -34,15 +36,15 @@ func (m *PostgresDBRepo) AllBookings() ([]*models.Booking, error) {
 
 	rows, err := m.DB.QueryContext(ctx, query)
 	if err != nil {
+		log.Print("Err in AllBookings: ", err)
 		return nil, err
 	}
 
 	defer rows.Close()
 
-	var bookings []*models.Booking
-
+	var bookings []*models.ApprovedBooking
 	for rows.Next() {
-		var booking models.Booking
+		var booking models.ApprovedBooking
 		err := rows.Scan(
 			&booking.ID,
 			&booking.Username,
@@ -61,21 +63,45 @@ func (m *PostgresDBRepo) AllBookings() ([]*models.Booking, error) {
 
 		bookings = append(bookings, &booking)
 	}
-
+	log.Print("Bookings: ", bookings)
 	return bookings, nil
 }
 
 func (m *PostgresDBRepo) InsertBookingRequest(booking models.Booking) (int, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
+	log.Print("Booking: ", booking)
 	defer cancel()
 
-	stmt := `insert into requestedbookings (username, name, date, unit_number, start_time,
+	// check for overlaps, WHERE clause covers all overlap scenarios
+	checkOverlapStmt := `
+	SELECT id
+	FROM approvedbookings
+	WHERE 
+		($1 < end_time AND $2 > start_time)
+	LIMIT 1;
+	`
+
+	var overlapID int
+	err := m.DB.QueryRowContext(ctx, checkOverlapStmt, booking.StartTime, booking.EndTime).Scan(&overlapID)
+	if err != nil && err != sql.ErrNoRows {
+		log.Print("Overlap check error: ", err)
+		return 0, err
+	}
+	log.Print("Overlap ID: ", overlapID)
+
+	// If overlap found, return error
+	if err != sql.ErrNoRows {
+		return 0, errors.New("Booking time overlaps with an existing booking")
+	}
+
+	// If no overlaps, proceed with insertion
+	stmt := `insert into approvedbookings (username, name, date, unit_number, start_time,
 		end_time, purpose, facility)
 		values ($1, $2, $3, $4, $5, $6, $7, $8) returning id`
 
 	var newID int
 
-	err := m.DB.QueryRowContext(ctx, stmt,
+	err = m.DB.QueryRowContext(ctx, stmt,
 		booking.Username,
 		booking.Name,
 		booking.Date,
@@ -87,30 +113,10 @@ func (m *PostgresDBRepo) InsertBookingRequest(booking models.Booking) (int, erro
 	).Scan(&newID)
 
 	if err != nil {
-		return 0, nil
-	}
-
-	return newID, nil
-}
-
-func (m *PostgresDBRepo) RegisterUser(username, password string) (int, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
-	defer cancel()
-
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
-	if err != nil {
+		log.Print("Insertion err: ", err)
 		return 0, err
 	}
-
-	stmt := `insert into users (username, password, is_admin) values ($1, $2, $3) returning id`
-
-	var newID int
-
-	err = m.DB.QueryRowContext(ctx, stmt, username, string(hashedPassword), false).Scan(&newID)
-
-	if err != nil {
-		return 0, err
-	}
+	log.Print("New id: ", newID)
 
 	return newID, nil
 }
@@ -165,6 +171,35 @@ func (m *PostgresDBRepo) GetUserByName(username string) (*models.User, error) {
 
 	if err != nil {
 		return nil, err
+	}
+
+	return &user, nil
+}
+
+
+func (m *PostgresDBRepo) RegisterUser(username, password string) (*models.User, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
+	defer cancel()
+
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		return nil, err
+	}
+
+	stmt := `insert into users (username, password, is_admin) values ($1, $2, $3) returning id`
+
+	var newID int
+
+	err = m.DB.QueryRowContext(ctx, stmt, username, string(hashedPassword), false).Scan(&newID)
+
+	if err != nil {
+		return nil, err
+	}
+
+	var user models.User = models.User{
+		ID: newID,
+		Username: username,
+		Password: password,
 	}
 
 	return &user, nil

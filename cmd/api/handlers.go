@@ -24,9 +24,10 @@ func (app *application) Home(w http.ResponseWriter, r *http.Request) {
 	// 	Message: "Go Movies up and running",
 	// 	Version: "1.0.0",
 	// }
-
+		log.Print("BACKEND HOME")
 	bookings, err := app.DB.AllBookings()
 	if err != nil {
+		log.Print("HOME ERR: ", err)
 		fmt.Println(err)
 		return
 	}
@@ -36,8 +37,17 @@ func (app *application) Home(w http.ResponseWriter, r *http.Request) {
 
 func (app *application) InsertBooking(w http.ResponseWriter, r *http.Request) {
 	var booking models.Booking
+	log.Print("Booking in handler: ", booking)
+
 
 	err := app.readJSON(w, r, &booking)
+	if err != nil {
+		log.Print("Error reading json: ", err)
+		app.errorJSON(w, err)
+		return
+	}
+	_, err = app.DB.InsertBookingRequest(booking)
+	log.Print("Err in insertbooking: ", err)
 	if err != nil {
 		app.errorJSON(w, err)
 		return
@@ -82,7 +92,6 @@ func (app *application) authenticate(w http.ResponseWriter, r *http.Request) {
 		ID:       user.ID,
 		Username: user.Username,
 	}
-	log.Print("GENERATED USER: ", u)
 
 	// generate tokens
 	tokens, err := app.auth.GenerateTokenPair(&u)
@@ -96,7 +105,43 @@ func (app *application) authenticate(w http.ResponseWriter, r *http.Request) {
 	http.SetCookie(w, refreshCookie)
 
 	app.writeJSON(w, http.StatusAccepted, tokens)
+}
 
+func (app *application) register(w http.ResponseWriter, r *http.Request) {
+	// read json payload
+	var requestPayload struct {
+		Username string `json:"username"`
+		Password string `json:"password"`
+	}
+
+	err := app.readJSON(w, r, &requestPayload)
+	if err != nil {
+		app.errorJSON(w, err, http.StatusBadRequest)
+		return
+	}
+
+	log.Print("Register err 1: ", err)
+	// register user
+	user, err := app.DB.RegisterUser(requestPayload.Username, requestPayload.Password)
+
+	// create a jwt user
+	u := jwtUser{
+		ID:       user.ID,
+		Username: user.Username,
+	}
+
+	// generate tokens
+	tokens, err := app.auth.GenerateTokenPair(&u)
+	if err != nil {
+		app.errorJSON(w, err)
+		return
+	}
+
+	log.Println(tokens.Token)
+	refreshCookie := app.auth.GetRefreshCookie(tokens.RefreshToken)
+	http.SetCookie(w, refreshCookie)
+
+	app.writeJSON(w, http.StatusAccepted, tokens)
 }
 
 func (app *application) refreshToken(w http.ResponseWriter, r *http.Request) {
@@ -110,7 +155,6 @@ func (app *application) refreshToken(w http.ResponseWriter, r *http.Request) {
 				return []byte(app.JWTSecret), nil
 			})
 			if err != nil {
-				log.Print(err)
 				app.errorJSON(w, errors.New("unauthorized"), http.StatusUnauthorized)
 				return
 			}
@@ -118,7 +162,6 @@ func (app *application) refreshToken(w http.ResponseWriter, r *http.Request) {
 			// get the username from the token claims
 			username := claims.Username
 			if err != nil {
-				log.Print(err)
 
 				app.errorJSON(w, errors.New("unknown user"), http.StatusUnauthorized)
 				return
@@ -154,4 +197,14 @@ func (app *application) refreshToken(w http.ResponseWriter, r *http.Request) {
 func (app *application) logout(w http.ResponseWriter, r *http.Request) {
 	http.SetCookie(w, app.auth.GetExpiredRefreshCookie())
 	w.WriteHeader(http.StatusAccepted)
+}
+
+func (app *application) BookingManagement(w http.ResponseWriter, r *http.Request) {
+	bookings, err := app.DB.AllBookings()
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	_ = app.writeJSON(w, http.StatusOK, bookings)
 }
