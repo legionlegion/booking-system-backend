@@ -21,17 +21,21 @@ func (m *PostgresDBRepo) Connection() *sql.DB {
 	return m.DB
 }
 
-func (m *PostgresDBRepo) AllBookings() ([]*models.ApprovedBooking, error) {
+func (m *PostgresDBRepo) AllBookings() ([]*models.SubmittedBooking, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
 	defer cancel()
 
 	query := `
-		select 
-			id, username, name, date, unit_number, start_time, end_time, purpose, facility 
-		from 
-			approvedbookings 
-		order by 
-			id
+	select 
+		id, username, name, start_date, end_date, unit_number, 
+		start_time, end_time, purpose, facility 
+	from 
+		approvedbookings 
+	where 
+		start_time >= date_trunc('week', current_date) 
+		and end_time < date_trunc('week', current_date) + interval '2 weeks'
+	order by 
+		id
 	`
 
 	rows, err := m.DB.QueryContext(ctx, query)
@@ -42,14 +46,15 @@ func (m *PostgresDBRepo) AllBookings() ([]*models.ApprovedBooking, error) {
 
 	defer rows.Close()
 
-	var bookings []*models.ApprovedBooking
+	var bookings []*models.SubmittedBooking
 	for rows.Next() {
-		var booking models.ApprovedBooking
+		var booking models.SubmittedBooking
 		err := rows.Scan(
 			&booking.ID,
 			&booking.Username,
 			&booking.Name,
-			&booking.Date,
+			&booking.StartDate,
+			&booking.EndDate,
 			&booking.UnitNumber,
 			&booking.StartTime,
 			&booking.EndTime,
@@ -67,7 +72,80 @@ func (m *PostgresDBRepo) AllBookings() ([]*models.ApprovedBooking, error) {
 	return bookings, nil
 }
 
-func (m *PostgresDBRepo) InsertBookingRequest(booking models.Booking) (int, error) {
+func (m *PostgresDBRepo) ManageBookings(username string) ([]*models.SubmittedBooking, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
+	defer cancel()
+
+	user, err := m.GetUserByName(username)
+	if err != nil {
+		log.Print("Error retrieving user: ", err)
+		return nil, err
+	}
+
+	var query string
+	var rows *sql.Rows
+	if user.IsAdmin {
+		// get all bookings
+		query = `
+		select 
+			id, username, name, start_date, end_date, unit_number, 
+			start_time, end_time, purpose, facility 
+		from 
+			requestedbookings 
+		order by 
+			id
+		`
+		rows, err = m.DB.QueryContext(ctx, query)
+	} else {
+		// get bookings that belong to user only
+		query = `
+		select 
+			id, username, name, start_date, end_date, unit_number, 
+			start_time, end_time, purpose, facility 
+		from 
+			requestedbookings
+		where
+			username = $1
+		order by 
+			id
+		`
+		rows, err = m.DB.QueryContext(ctx, query, username)
+	}
+
+	if err != nil {
+		log.Print("Error in ManageBookings: ", err)
+		return nil, err
+	}
+
+	defer rows.Close()
+
+	var bookings []*models.SubmittedBooking
+	for rows.Next() {
+		var booking models.SubmittedBooking
+		err := rows.Scan(
+			&booking.ID,
+			&booking.Username,
+			&booking.Name,
+			&booking.StartDate,
+			&booking.EndDate,
+			&booking.UnitNumber,
+			&booking.StartTime,
+			&booking.EndTime,
+			&booking.Purpose,
+			&booking.Facility,
+		)
+
+		if err != nil {
+			return nil, err
+		}
+
+		bookings = append(bookings, &booking)
+	}
+	log.Print("Requested Bookings: ", bookings)
+	return bookings, nil
+}
+
+func (m *PostgresDBRepo) InsertBookingRequest(booking models.Booking) error {
 	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
 	log.Print("Booking: ", booking)
 	defer cancel()
@@ -85,26 +163,27 @@ func (m *PostgresDBRepo) InsertBookingRequest(booking models.Booking) (int, erro
 	err := m.DB.QueryRowContext(ctx, checkOverlapStmt, booking.StartTime, booking.EndTime).Scan(&overlapID)
 	if err != nil && err != sql.ErrNoRows {
 		log.Print("Overlap check error: ", err)
-		return 0, err
+		return err
 	}
 	log.Print("Overlap ID: ", overlapID)
 
 	// If overlap found, return error
 	if err != sql.ErrNoRows {
-		return 0, errors.New("Booking time overlaps with an existing booking")
+		return errors.New("Booking time overlaps with an existing booking")
 	}
 
 	// If no overlaps, proceed with insertion
-	stmt := `insert into approvedbookings (username, name, date, unit_number, start_time,
+	stmt := `insert into requestedbookings (username, name, start_date, end_date, unit_number, start_time,
 		end_time, purpose, facility)
-		values ($1, $2, $3, $4, $5, $6, $7, $8) returning id`
+		values ($1, $2, $3, $4, $5, $6, $7, $8, $9) returning id`
 
 	var newID int
 
 	err = m.DB.QueryRowContext(ctx, stmt,
 		booking.Username,
 		booking.Name,
-		booking.Date,
+		booking.StartDate,
+		booking.EndDate,
 		booking.UnitNumber,
 		booking.StartTime,
 		booking.EndTime,
@@ -114,16 +193,33 @@ func (m *PostgresDBRepo) InsertBookingRequest(booking models.Booking) (int, erro
 
 	if err != nil {
 		log.Print("Insertion err: ", err)
-		return 0, err
+		return err
 	}
 	log.Print("New id: ", newID)
 
-	return newID, nil
+	return nil
 }
 
-func (m *PostgresDBRepo) ApproveBooking(id int) error {
+func (m *PostgresDBRepo) ApproveBooking(booking models.SubmittedBooking) error {
 	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
 	defer cancel()
+
+	// check for overlaps, WHERE clause covers all overlap scenarios
+	checkOverlapStmt := `
+		SELECT id
+		FROM approvedbookings
+		WHERE 
+			($1 < end_time AND $2 > start_time)
+		LIMIT 1;
+		`
+
+	var overlapID int
+	err := m.DB.QueryRowContext(ctx, checkOverlapStmt, booking.StartTime, booking.EndTime).Scan(&overlapID)
+	if err != nil && err != sql.ErrNoRows {
+		log.Print("Overlap check error: ", err)
+		return err
+	}
+	log.Print("Overlap ID: ", overlapID)
 
 	tx, err := m.DB.BeginTx(ctx, nil)
 	if err != nil {
@@ -131,9 +227,9 @@ func (m *PostgresDBRepo) ApproveBooking(id int) error {
 	}
 
 	// Copy the booking from requestedbookings to approvedbookings
-	copyStmt := `INSERT INTO approvedbookings (username, name, date, unit_number, start_time, end_time, purpose, facility)
-		SELECT username, name, date, unit_number, start_time, end_time, purpose, facility FROM requestedbookings WHERE id = $1`
-	_, err = tx.ExecContext(ctx, copyStmt, id)
+	copyStmt := `INSERT INTO approvedbookings (username, name, start_date, end_date, unit_number, start_time, end_time, purpose, facility)
+		SELECT username, name, start_date, end_date, unit_number, start_time, end_time, purpose, facility FROM requestedbookings WHERE id = $1`
+	_, err = tx.ExecContext(ctx, copyStmt, booking.ID)
 	if err != nil {
 		_ = tx.Rollback()
 		return err
@@ -141,7 +237,7 @@ func (m *PostgresDBRepo) ApproveBooking(id int) error {
 
 	// Delete the booking from requestedbookings
 	deleteStmt := `DELETE FROM requestedbookings WHERE id = $1`
-	_, err = tx.ExecContext(ctx, deleteStmt, id)
+	_, err = tx.ExecContext(ctx, deleteStmt, booking.ID)
 	if err != nil {
 		_ = tx.Rollback()
 		return err
@@ -159,7 +255,7 @@ func (m *PostgresDBRepo) GetUserByName(username string) (*models.User, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
 	defer cancel()
 
-	query := `select id, username, password from users where username = $1`
+	query := `select id, username, password, is_admin from users where username = $1`
 	var user models.User
 	row := m.DB.QueryRowContext(ctx, query, username)
 
@@ -167,6 +263,7 @@ func (m *PostgresDBRepo) GetUserByName(username string) (*models.User, error) {
 		&user.ID,
 		&user.Username,
 		&user.Password,
+		&user.IsAdmin,
 	)
 
 	if err != nil {
@@ -175,7 +272,6 @@ func (m *PostgresDBRepo) GetUserByName(username string) (*models.User, error) {
 
 	return &user, nil
 }
-
 
 func (m *PostgresDBRepo) RegisterUser(username, password string) (*models.User, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
@@ -197,7 +293,7 @@ func (m *PostgresDBRepo) RegisterUser(username, password string) (*models.User, 
 	}
 
 	var user models.User = models.User{
-		ID: newID,
+		ID:       newID,
 		Username: username,
 		Password: password,
 	}

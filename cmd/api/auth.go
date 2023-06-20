@@ -24,6 +24,7 @@ type Auth struct {
 type jwtUser struct {
 	ID       int    `json:"id"`
 	Username string `json:"username"`
+	IsAdmin  bool   `json:"is_admin"`
 }
 
 type TokenPairs struct {
@@ -48,6 +49,7 @@ func (j *Auth) GenerateTokenPair(user *jwtUser) (TokenPairs, error) {
 	claims["iss"] = j.Issuer
 	claims["iat"] = time.Now().UTC().Unix()
 	claims["typ"] = "JWT"
+	claims["isAdmin"] = user.IsAdmin
 
 	// Set the expiry for JWT
 	claims["exp"] = time.Now().UTC().Add(j.TokenExpiry).Unix()
@@ -64,6 +66,7 @@ func (j *Auth) GenerateTokenPair(user *jwtUser) (TokenPairs, error) {
 	refreshTokenClaims["username"] = user.Username
 	refreshTokenClaims["sub"] = fmt.Sprint(user.ID)
 	refreshTokenClaims["iat"] = time.Now().UTC().Unix()
+	refreshTokenClaims["isAdmin"] = user.IsAdmin
 
 	// Set the expiry for the refresh token
 	refreshTokenClaims["exp"] = time.Now().UTC().Add(j.RefreshExpiry).Unix()
@@ -159,7 +162,7 @@ func (j *Auth) GetAndVerifyHeaderToken(w http.ResponseWriter, r *http.Request) (
 		return "", nil, err
 	}
 
-	// checks whether the issuer (iss) claim in the token matches the expected issuer. 
+	// checks whether the issuer (iss) claim in the token matches the expected issuer.
 	// if the issuer is not what's expected, it returns an error.
 	if claims.Issuer != j.Issuer {
 		return "", nil, errors.New("Invalid issuer")

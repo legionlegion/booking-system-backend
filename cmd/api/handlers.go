@@ -24,11 +24,10 @@ func (app *application) Home(w http.ResponseWriter, r *http.Request) {
 	// 	Message: "Go Movies up and running",
 	// 	Version: "1.0.0",
 	// }
-		log.Print("BACKEND HOME")
+	log.Print("BACKEND HOME")
 	bookings, err := app.DB.AllBookings()
 	if err != nil {
 		log.Print("HOME ERR: ", err)
-		fmt.Println(err)
 		return
 	}
 
@@ -39,14 +38,13 @@ func (app *application) InsertBooking(w http.ResponseWriter, r *http.Request) {
 	var booking models.Booking
 	log.Print("Booking in handler: ", booking)
 
-
 	err := app.readJSON(w, r, &booking)
 	if err != nil {
 		log.Print("Error reading json: ", err)
 		app.errorJSON(w, err)
 		return
 	}
-	_, err = app.DB.InsertBookingRequest(booking)
+	err = app.DB.InsertBookingRequest(booking)
 	log.Print("Err in insertbooking: ", err)
 	if err != nil {
 		app.errorJSON(w, err)
@@ -91,6 +89,7 @@ func (app *application) authenticate(w http.ResponseWriter, r *http.Request) {
 	u := jwtUser{
 		ID:       user.ID,
 		Username: user.Username,
+		IsAdmin:  user.IsAdmin,
 	}
 
 	// generate tokens
@@ -200,7 +199,8 @@ func (app *application) logout(w http.ResponseWriter, r *http.Request) {
 }
 
 func (app *application) BookingManagement(w http.ResponseWriter, r *http.Request) {
-	bookings, err := app.DB.AllBookings()
+	username := r.Header.Get("Username")
+	bookings, err := app.DB.ManageBookings(username)
 	if err != nil {
 		fmt.Println(err)
 		return
