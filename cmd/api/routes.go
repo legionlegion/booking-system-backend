@@ -29,7 +29,9 @@ func (app *application) routes() http.Handler {
 		mux.Use(app.authCheck)
 
 		mux.Get("/booking-management", app.BookingManagement)
-		mux.Put("/addBooking", app.InsertBooking)
+		mux.Put("/add-booking", app.InsertBooking)
+		mux.Put("/approve-booking", app.ApproveBooking)
+		mux.Put("/delete-booking", app.DeleteBooking)
 	})
 
 	return mux

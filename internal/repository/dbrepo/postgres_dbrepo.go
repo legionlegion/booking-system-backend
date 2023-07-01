@@ -200,7 +200,7 @@ func (m *PostgresDBRepo) InsertBookingRequest(booking models.Booking) error {
 	return nil
 }
 
-func (m *PostgresDBRepo) ApproveBooking(booking models.SubmittedBooking) error {
+func (m *PostgresDBRepo) ApproveBookingRequest(booking models.SubmittedBooking) error {
 	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
 	defer cancel()
 
@@ -251,6 +251,26 @@ func (m *PostgresDBRepo) ApproveBooking(booking models.SubmittedBooking) error {
 	return nil
 }
 
+func (m *PostgresDBRepo) DeleteBookingRequest(booking models.SubmittedBooking) error {
+	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
+	defer cancel()
+
+	tx, err := m.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+
+	// Delete the booking from requestedbookings
+	deleteStmt := `DELETE FROM requestedbookings WHERE id = $1`
+	_, err = tx.ExecContext(ctx, deleteStmt, booking.ID)
+
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (m *PostgresDBRepo) GetUserByName(username string) (*models.User, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
 	defer cancel()
@@ -286,7 +306,7 @@ func (m *PostgresDBRepo) RegisterUser(username, password string) (*models.User, 
 
 	var newID int
 
-	err = m.DB.QueryRowContext(ctx, stmt, username, string(hashedPassword), false).Scan(&newID)
+	err = m.DB.QueryRowContext(ctx, stmt, username, string(hashedPassword), true).Scan(&newID)
 
 	if err != nil {
 		return nil, err

@@ -59,6 +59,56 @@ func (app *application) InsertBooking(w http.ResponseWriter, r *http.Request) {
 	app.writeJSON(w, http.StatusAccepted, resp)
 }
 
+func (app *application) ApproveBooking(w http.ResponseWriter, r *http.Request) {
+	var booking models.SubmittedBooking
+	log.Print("Booking in approve handler: ", booking)
+
+	err := app.readJSON(w, r, &booking)
+	if err != nil {
+		log.Print("Error reading json: ", err)
+		app.errorJSON(w, err)
+		return
+	}
+	err = app.DB.ApproveBookingRequest(booking)
+	log.Print("Err in approve: ", err)
+	if err != nil {
+		app.errorJSON(w, err)
+		return
+	}
+
+	resp := JSONResponse{
+		Error:   false,
+		Message: "Booking requested",
+	}
+
+	app.writeJSON(w, http.StatusAccepted, resp)
+}
+
+func (app *application) DeleteBooking(w http.ResponseWriter, r *http.Request) {
+	var booking models.SubmittedBooking
+	log.Print("Booking in delete handler: ", booking)
+
+	err := app.readJSON(w, r, &booking)
+	if err != nil {
+		log.Print("Error reading json: ", err)
+		app.errorJSON(w, err)
+		return
+	}
+	err = app.DB.DeleteBookingRequest(booking)
+	log.Print("Err in delete: ", err)
+	if err != nil {
+		app.errorJSON(w, err)
+		return
+	}
+
+	resp := JSONResponse{
+		Error:   false,
+		Message: "Booking requested",
+	}
+
+	app.writeJSON(w, http.StatusAccepted, resp)
+}
+
 func (app *application) authenticate(w http.ResponseWriter, r *http.Request) {
 	// read json payload
 	var requestPayload struct {
@@ -200,6 +250,7 @@ func (app *application) logout(w http.ResponseWriter, r *http.Request) {
 
 func (app *application) BookingManagement(w http.ResponseWriter, r *http.Request) {
 	username := r.Header.Get("Username")
+	log.Println("Managing bookings handler")
 	bookings, err := app.DB.ManageBookings(username)
 	if err != nil {
 		fmt.Println(err)
