@@ -28,10 +28,12 @@ func (app *application) routes() http.Handler {
 	mux.Route("/admin", func(mux chi.Router) {
 		mux.Use(app.authCheck)
 
-		mux.Get("/booking-management", app.BookingManagement)
 		mux.Put("/add-booking", app.InsertBooking)
+		mux.Get("/all-booking", app.AllBookings)
 		mux.Put("/approve-booking", app.ApproveBooking)
-		mux.Put("/delete-booking", app.DeleteBooking)
+		mux.Get("/booking-management", app.BookingManagement)
+		mux.Put("/delete-pending", app.DeletePending)
+		mux.Put("/delete-approved", app.DeleteApproved)
 	})
 
 	return mux

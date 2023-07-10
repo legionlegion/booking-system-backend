@@ -24,28 +24,34 @@ func (app *application) Home(w http.ResponseWriter, r *http.Request) {
 	// 	Message: "Go Movies up and running",
 	// 	Version: "1.0.0",
 	// }
-	log.Print("BACKEND HOME")
-	bookings, err := app.DB.AllBookings()
+	bookings, err := app.DB.TwoWeekBookings()
 	if err != nil {
-		log.Print("HOME ERR: ", err)
 		return
 	}
 
 	_ = app.writeJSON(w, http.StatusOK, bookings)
 }
 
+func (app *application) AllBookings(w http.ResponseWriter, r *http.Request) {
+	bookings, err := app.DB.AllBookings()
+	if err != nil {
+		log.Print("ERR IN ALLBOOKINGS")
+		return
+	}
+	log.Print("ALL BOOKINGS: ", bookings)
+
+	_ = app.writeJSON(w, http.StatusOK, bookings)
+}
+
 func (app *application) InsertBooking(w http.ResponseWriter, r *http.Request) {
 	var booking models.Booking
-	log.Print("Booking in handler: ", booking)
 
 	err := app.readJSON(w, r, &booking)
 	if err != nil {
-		log.Print("Error reading json: ", err)
 		app.errorJSON(w, err)
 		return
 	}
 	err = app.DB.InsertBookingRequest(booking)
-	log.Print("Err in insertbooking: ", err)
 	if err != nil {
 		app.errorJSON(w, err)
 		return
@@ -61,16 +67,13 @@ func (app *application) InsertBooking(w http.ResponseWriter, r *http.Request) {
 
 func (app *application) ApproveBooking(w http.ResponseWriter, r *http.Request) {
 	var booking models.SubmittedBooking
-	log.Print("Booking in approve handler: ", booking)
 
 	err := app.readJSON(w, r, &booking)
 	if err != nil {
-		log.Print("Error reading json: ", err)
 		app.errorJSON(w, err)
 		return
 	}
 	err = app.DB.ApproveBookingRequest(booking)
-	log.Print("Err in approve: ", err)
 	if err != nil {
 		app.errorJSON(w, err)
 		return
@@ -84,18 +87,37 @@ func (app *application) ApproveBooking(w http.ResponseWriter, r *http.Request) {
 	app.writeJSON(w, http.StatusAccepted, resp)
 }
 
-func (app *application) DeleteBooking(w http.ResponseWriter, r *http.Request) {
+func (app *application) DeletePending(w http.ResponseWriter, r *http.Request) {
 	var booking models.SubmittedBooking
-	log.Print("Booking in delete handler: ", booking)
 
 	err := app.readJSON(w, r, &booking)
 	if err != nil {
-		log.Print("Error reading json: ", err)
 		app.errorJSON(w, err)
 		return
 	}
 	err = app.DB.DeleteBookingRequest(booking)
-	log.Print("Err in delete: ", err)
+	if err != nil {
+		app.errorJSON(w, err)
+		return
+	}
+
+	resp := JSONResponse{
+		Error:   false,
+		Message: "Booking requested",
+	}
+
+	app.writeJSON(w, http.StatusAccepted, resp)
+}
+
+func (app *application) DeleteApproved(w http.ResponseWriter, r *http.Request) {
+	var booking models.SubmittedBooking
+
+	err := app.readJSON(w, r, &booking)
+	if err != nil {
+		app.errorJSON(w, err)
+		return
+	}
+	err = app.DB.DeleteApprovedBooking(booking)
 	if err != nil {
 		app.errorJSON(w, err)
 		return
@@ -169,7 +191,6 @@ func (app *application) register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Print("Register err 1: ", err)
 	// register user
 	user, err := app.DB.RegisterUser(requestPayload.Username, requestPayload.Password)
 
@@ -177,6 +198,7 @@ func (app *application) register(w http.ResponseWriter, r *http.Request) {
 	u := jwtUser{
 		ID:       user.ID,
 		Username: user.Username,
+		IsAdmin:  user.IsAdmin,
 	}
 
 	// generate tokens
@@ -227,7 +249,9 @@ func (app *application) refreshToken(w http.ResponseWriter, r *http.Request) {
 			u := jwtUser{
 				ID:       user.ID,
 				Username: user.Username,
+				IsAdmin:  user.IsAdmin,
 			}
+			log.Println("jwt user: ", u)
 
 			tokenPairs, err := app.auth.GenerateTokenPair(&u)
 
@@ -250,7 +274,6 @@ func (app *application) logout(w http.ResponseWriter, r *http.Request) {
 
 func (app *application) BookingManagement(w http.ResponseWriter, r *http.Request) {
 	username := r.Header.Get("Username")
-	log.Println("Managing bookings handler")
 	bookings, err := app.DB.ManageBookings(username)
 	if err != nil {
 		fmt.Println(err)
