@@ -4,7 +4,6 @@ import (
 	"booking-backend/internal/models"
 	"errors"
 	"fmt"
-	"log"
 	"net/http"
 
 	"github.com/golang-jwt/jwt/v4"
@@ -35,10 +34,8 @@ func (app *application) Home(w http.ResponseWriter, r *http.Request) {
 func (app *application) AllBookings(w http.ResponseWriter, r *http.Request) {
 	bookings, err := app.DB.AllBookings()
 	if err != nil {
-		log.Print("ERR IN ALLBOOKINGS")
 		return
 	}
-	log.Print("ALL BOOKINGS: ", bookings)
 
 	_ = app.writeJSON(w, http.StatusOK, bookings)
 }
@@ -171,7 +168,6 @@ func (app *application) authenticate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Println(tokens.Token)
 	refreshCookie := app.auth.GetRefreshCookie(tokens.RefreshToken)
 	http.SetCookie(w, refreshCookie)
 
@@ -208,7 +204,6 @@ func (app *application) register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Println(tokens.Token)
 	refreshCookie := app.auth.GetRefreshCookie(tokens.RefreshToken)
 	http.SetCookie(w, refreshCookie)
 
@@ -251,7 +246,6 @@ func (app *application) refreshToken(w http.ResponseWriter, r *http.Request) {
 				Username: user.Username,
 				IsAdmin:  user.IsAdmin,
 			}
-			log.Println("jwt user: ", u)
 
 			tokenPairs, err := app.auth.GenerateTokenPair(&u)
 

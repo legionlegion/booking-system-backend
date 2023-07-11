@@ -3,7 +3,6 @@ package main
 import (
 	"errors"
 	"fmt"
-	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -133,7 +132,6 @@ func (j *Auth) GetAndVerifyHeaderToken(w http.ResponseWriter, r *http.Request) (
 	// Authorization header should have the format Bearer JWTtoken, so it's split by spaces and checks if the first part is Bearer.
 	headerParts := strings.Split(authHeader, " ")
 	if len(headerParts) != 2 {
-		log.Print("INCORRECT AUTH LENGTH")
 		return "", nil, errors.New("Auth header length incorrect")
 	}
 

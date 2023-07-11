@@ -1,7 +1,6 @@
 package main
 
 import (
-	"log"
 	"net/http"
 )
 
@@ -22,7 +21,6 @@ func (app *application) enableCORS(h http.Handler) http.Handler {
 
 func (app *application) authCheck(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		log.Println("AUTH CHECK")
 		_, _, err := app.auth.GetAndVerifyHeaderToken(w, r)
 		if err != nil {
 			w.WriteHeader(http.StatusUnauthorized)

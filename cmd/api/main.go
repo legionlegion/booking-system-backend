@@ -54,7 +54,6 @@ func main() {
 	app.DB = &dbrepo.PostgresDBRepo{DB: conn}
 	defer app.DB.Connection().Close() // closes when main finishes running
 
-	log.Println("Running on port: ", port)
 
 	app.auth = Auth{
 		Issuer:        app.JWTIssuer,

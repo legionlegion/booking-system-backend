@@ -30,6 +30,9 @@ func (m *PostgresDBRepo) AllBookings() ([]*models.SubmittedBooking, error) {
 		start_time, end_time, purpose, facility 
 	from 
 		approvedbookings 
+	where 
+		start_time >= date_trunc('week', current_date) 
+		and end_time < date_trunc('week', current_date) + interval '2 weeks'
 	order by 
 		id
 	`
