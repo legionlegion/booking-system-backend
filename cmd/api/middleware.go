@@ -6,7 +6,7 @@ import (
 
 func (app *application) enableCORS(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Origin", "https://syal-2ae9b.firebaseapp.com")
+		w.Header().Set("Access-Control-Allow-Origin", "https://bookingsyal-cbd544b30b67.herokuapp.com/")
 		w.Header().Set("Access-Control-Allow-Credentials", "true")
 
 		if r.Method == "OPTIONS" {

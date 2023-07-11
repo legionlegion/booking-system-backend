@@ -28,9 +28,17 @@ func main() {
 	// read from command line
 	dsn, exists := os.LookupEnv("DATABASE_URL")
 	if !exists {
-		log.Fatal("DATABASE_URL not set")
+		// log.Fatal("DATABASE_URL not set")
+		flag.StringVar(
+			&app.DSN,
+			"dsn",
+			"host=localhost port = 5432 user=syal password=syal dbname=bookings sslmode=disable timezone=UTC connect_timeout=5",
+			"Postgres connection string",
+		)
+		flag.Parse()
+	} else {
+		app.DSN = dsn
 	}
-	app.DSN = dsn
 
 	flag.StringVar(&app.JWTSecret, "jwt-secret", "secret", "signing secret")
 	flag.StringVar(&app.JWTIssuer, "jwt-issuer", "example.com", "signing issuer")
@@ -62,8 +70,9 @@ func main() {
 	}
 
 	port, exists := os.LookupEnv("PORT")
+
 	if !exists {
-		log.Fatal("PORT not set")
+		port = "8080"
 	}
 
 	// start a web server
