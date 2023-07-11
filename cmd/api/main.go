@@ -4,14 +4,11 @@ import (
 	"booking-backend/internal/repository"
 	"booking-backend/internal/repository/dbrepo"
 	"flag"
-	"fmt"
 	"log"
 	"net/http"
 	"os"
 	"time"
 )
-
-const port = 8080
 
 type application struct {
 	Domain       string
@@ -64,8 +61,13 @@ func main() {
 		CookieDomain:  app.CookieDomain,
 	}
 
+	port, exists := os.LookupEnv("PORT")
+	if !exists {
+		log.Fatal("PORT not set")
+	}
+
 	// start a web server
-	err = http.ListenAndServe(fmt.Sprintf(":%d", port), app.routes()) // go-chi mux
+	err = http.ListenAndServe(":"+port, app.routes()) // go-chi mux
 	if err != nil {
 		log.Fatal(err)
 	}
