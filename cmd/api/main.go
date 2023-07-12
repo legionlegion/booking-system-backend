@@ -38,17 +38,17 @@ func main() {
 		flag.Parse()
 	} else {
 		app.DSN = dsn
+
 	}
 
 	flag.StringVar(&app.JWTSecret, "jwt-secret", "secret", "signing secret")
-	flag.StringVar(&app.JWTIssuer, "jwt-issuer", "example.com", "signing issuer")
-	flag.StringVar(&app.JWTAudience, "jwt-audience", "example.com", "signing audience")
-	flag.StringVar(&app.CookieDomain, "cookie-domain", "localhost", "cookie domain")
-	flag.StringVar(&app.Domain, "domain", "example.com", "domain")
+	flag.StringVar(&app.JWTIssuer, "jwt-issuer", "https://syal-2ae9b.firebaseapp.com", "signing issuer")
+	flag.StringVar(&app.JWTAudience, "jwt-audience", "https://syal-2ae9b.firebaseapp.com", "signing audience")
+	flag.StringVar(&app.CookieDomain, "cookie-domain", "syal-2ae9b.firebaseapp.com", "cookie domain")
+	flag.StringVar(&app.Domain, "domain", "https://syal-2ae9b.firebaseapp.com", "domain")
 	flag.Parse()
 
 	// connect to database
-	app.Domain = "example.com"
 	conn, err := app.connectToDB()
 
 	if err != nil {
