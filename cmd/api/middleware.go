@@ -8,8 +8,8 @@ import (
 func (app *application) enableCORS(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		allowedOrigins := map[string]bool{
-			"https://syal-2ae9b.firebaseapp.com/": true,
-			"https://syal-2ae9b.web.app/":         true,
+			"https://syal-2ae9b.firebaseapp.com": true,
+			"https://syal-2ae9b.web.app":         true,
 			"http://localhost:3000":               true,
 		}
 		origin := r.Header.Get("Origin")
