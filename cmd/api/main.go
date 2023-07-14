@@ -28,7 +28,7 @@ func main() {
 	// read from command line
 	dsn, exists := os.LookupEnv("DATABASE_URL")
 	if !exists {
-		// log.Fatal("DATABASE_URL not set")
+		log.Print("DATABASE_URL not set, setting to localhost")
 		flag.StringVar(
 			&app.DSN,
 			"dsn",
@@ -38,7 +38,6 @@ func main() {
 		flag.Parse()
 	} else {
 		app.DSN = dsn
-
 	}
 
 	flag.StringVar(&app.JWTSecret, "jwt-secret", "secret", "signing secret")
@@ -72,6 +71,7 @@ func main() {
 	port, exists := os.LookupEnv("PORT")
 
 	if !exists {
+		log.Print("Setting port to local")
 		port = "8080"
 	}
 

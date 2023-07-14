@@ -1,6 +1,7 @@
 package main
 
 import (
+	"log"
 	"net/http"
 )
 
@@ -9,8 +10,11 @@ func (app *application) enableCORS(h http.Handler) http.Handler {
 		allowedOrigins := map[string]bool{
 			"https://syal-2ae9b.firebaseapp.com/": true,
 			"https://syal-2ae9b.web.app/":         true,
+			"http://localhost:3000":               true,
 		}
 		origin := r.Header.Get("Origin")
+		log.Print("Origin: ", origin);
+		log.Print("Allowed: ", allowedOrigins[origin]);
 		if _, ok := allowedOrigins[origin]; ok {
 			w.Header().Set("Access-Control-Allow-Origin", origin)
 			w.Header().Set("Access-Control-Allow-Credentials", "true")

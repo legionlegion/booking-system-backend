@@ -4,6 +4,7 @@ import (
 	"booking-backend/internal/models"
 	"errors"
 	"fmt"
+	"log"
 	"net/http"
 
 	"github.com/golang-jwt/jwt/v4"
@@ -25,8 +26,10 @@ func (app *application) Home(w http.ResponseWriter, r *http.Request) {
 	// }
 	bookings, err := app.DB.TwoWeekBookings()
 	if err != nil {
+		log.Println("Err: ", err)
 		return
 	}
+	log.Print("Bookings: ")
 
 	_ = app.writeJSON(w, http.StatusOK, bookings)
 }
