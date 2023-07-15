@@ -182,6 +182,7 @@ func (app *application) register(w http.ResponseWriter, r *http.Request) {
 	var requestPayload struct {
 		Username string `json:"username"`
 		Password string `json:"password"`
+		Admin    bool   `json:"admin"`
 	}
 
 	err := app.readJSON(w, r, &requestPayload)
@@ -191,7 +192,7 @@ func (app *application) register(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// register user
-	user, err := app.DB.RegisterUser(requestPayload.Username, requestPayload.Password)
+	user, err := app.DB.RegisterUser(requestPayload.Username, requestPayload.Password, requestPayload.Admin)
 
 	// create a jwt user
 	u := jwtUser{

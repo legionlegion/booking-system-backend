@@ -15,5 +15,5 @@ type DatabaseRepo interface {
 	DeleteBookingRequest(booking models.SubmittedBooking) error
 	DeleteApprovedBooking(booking models.SubmittedBooking) error
 	GetUserByName(username string) (*models.User, error)
-	RegisterUser(username, password string) (*models.User, error)
+	RegisterUser(username string, password string, admin bool) (*models.User, error)
 }

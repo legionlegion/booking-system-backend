@@ -364,7 +364,7 @@ func (m *PostgresDBRepo) GetUserByName(username string) (*models.User, error) {
 	return &user, nil
 }
 
-func (m *PostgresDBRepo) RegisterUser(username, password string) (*models.User, error) {
+func (m *PostgresDBRepo) RegisterUser(username string, password string, admin bool) (*models.User, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
 	defer cancel()
 
@@ -377,7 +377,7 @@ func (m *PostgresDBRepo) RegisterUser(username, password string) (*models.User, 
 
 	var newID int
 
-	err = m.DB.QueryRowContext(ctx, stmt, username, string(hashedPassword), false).Scan(&newID)
+	err = m.DB.QueryRowContext(ctx, stmt, username, string(hashedPassword), admin).Scan(&newID)
 
 	if err != nil {
 		return nil, err
@@ -387,7 +387,7 @@ func (m *PostgresDBRepo) RegisterUser(username, password string) (*models.User, 
 		ID:       newID,
 		Username: username,
 		Password: password,
-		IsAdmin:  false,
+		IsAdmin:  admin,
 	}
 
 	return &user, nil
