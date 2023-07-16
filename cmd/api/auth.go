@@ -97,7 +97,7 @@ func (j *Auth) GetRefreshCookie(refreshToken string) *http.Cookie {
 		Value:    refreshToken,
 		Expires:  time.Now().Add(j.RefreshExpiry),
 		MaxAge:   int(j.RefreshExpiry.Seconds()),
-		SameSite: http.SameSiteNoneMode,  // Set SameSite to None
+		SameSite: http.SameSiteNoneMode, // Set SameSite to None because front and back domain are different
 		Domain:   j.CookieDomain,
 		HttpOnly: true,
 		Secure:   true,
@@ -123,7 +123,7 @@ func (j *Auth) GetExpiredRefreshCookie() *http.Cookie {
 		Value:    "",
 		Expires:  time.Unix(0, 0),
 		MaxAge:   -1,
-		SameSite: http.SameSiteStrictMode,
+		SameSite: http.SameSiteNoneMode, // Set SameSite to None because front and back domain are different
 		Domain:   j.CookieDomain,
 		HttpOnly: true,
 		Secure:   true,
