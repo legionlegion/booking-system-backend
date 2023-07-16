@@ -43,7 +43,8 @@ func main() {
 	flag.StringVar(&app.JWTSecret, "jwt-secret", "secret", "signing secret")
 	flag.StringVar(&app.JWTIssuer, "jwt-issuer", "https://syal-2ae9b.firebaseapp.com", "signing issuer")
 	flag.StringVar(&app.JWTAudience, "jwt-audience", "https://syal-2ae9b.firebaseapp.com", "signing audience")
-	flag.StringVar(&app.CookieDomain, "cookie-domain", "syal-2ae9b.firebaseapp.com", "cookie domain")
+	flag.StringVar(&app.CookieDomain, "cookie-domain", "bookingsyal-cbd544b30b67.herokuapp.com", "cookie domain")
+	// flag.StringVar(&app.CookieDomain, "cookie-domain", "localhost", "cookie domain")
 	flag.StringVar(&app.Domain, "domain", "https://syal-2ae9b.firebaseapp.com", "domain")
 	flag.Parse()
 

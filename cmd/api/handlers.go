@@ -216,15 +216,22 @@ func (app *application) register(w http.ResponseWriter, r *http.Request) {
 
 func (app *application) refreshToken(w http.ResponseWriter, r *http.Request) {
 	for _, cookie := range r.Cookies() {
+		log.Println("Request Host: ", r.Host)
+		log.Println("Request Path: ", r.URL.Path)
+		log.Println("Cookie name: ", cookie.Name)
+		log.Println("App cookie name: ", app.auth.CookieName)
 		if cookie.Name == app.auth.CookieName {
+			log.Println("Cookie name passed")
 			claims := &Claims{}
 			refreshToken := cookie.Value
 
 			// parse the token to get the claims
 			_, err := jwt.ParseWithClaims(refreshToken, claims, func(token *jwt.Token) (interface{}, error) {
+				log.Println("Success claim parsing")
 				return []byte(app.JWTSecret), nil
 			})
 			if err != nil {
+				log.Println("Unauthorized")
 				app.errorJSON(w, errors.New("unauthorized"), http.StatusUnauthorized)
 				return
 			}
@@ -232,7 +239,7 @@ func (app *application) refreshToken(w http.ResponseWriter, r *http.Request) {
 			// get the username from the token claims
 			username := claims.Username
 			if err != nil {
-
+				log.Println("Unknown user")
 				app.errorJSON(w, errors.New("unknown user"), http.StatusUnauthorized)
 				return
 			}
@@ -241,6 +248,7 @@ func (app *application) refreshToken(w http.ResponseWriter, r *http.Request) {
 			user, err := app.DB.GetUserByName(username)
 
 			if err != nil {
+				log.Println("Unknown user")
 				app.errorJSON(w, errors.New("unknown user"), http.StatusUnauthorized)
 				return
 			}
@@ -254,10 +262,12 @@ func (app *application) refreshToken(w http.ResponseWriter, r *http.Request) {
 			tokenPairs, err := app.auth.GenerateTokenPair(&u)
 
 			if err != nil {
+				log.Println("Error generating token")
 				app.errorJSON(w, errors.New("error generating tokens"), http.StatusUnauthorized)
 				return
 			}
 
+			log.Println("Sucess token generation")
 			http.SetCookie(w, app.auth.GetRefreshCookie(tokenPairs.RefreshToken))
 
 			app.writeJSON(w, http.StatusOK, tokenPairs)

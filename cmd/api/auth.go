@@ -83,13 +83,15 @@ func (j *Auth) GenerateTokenPair(user *jwtUser) (TokenPairs, error) {
 		Token:        signedAccessToken,
 		RefreshToken: signedRefreshToken,
 	}
+	log.Println("Signed access token: ", tokenPairs.Token)
+	log.Println("Signed refresh token: ", tokenPairs.RefreshToken)
 
 	// Return TokenPairs
 	return tokenPairs, nil
 }
 
 func (j *Auth) GetRefreshCookie(refreshToken string) *http.Cookie {
-	return &http.Cookie{
+	cookie := &http.Cookie{
 		Name:     j.CookieName,
 		Path:     j.CookiePath,
 		Value:    refreshToken,
@@ -100,6 +102,18 @@ func (j *Auth) GetRefreshCookie(refreshToken string) *http.Cookie {
 		HttpOnly: true,
 		Secure:   true,
 	}
+
+	log.Println("Cookie Name: ", cookie.Name)
+	log.Println("Cookie Path: ", cookie.Path)
+	log.Println("Cookie Value: ", cookie.Value)
+	log.Println("Cookie Expires: ", cookie.Expires)
+	log.Println("Cookie MaxAge: ", cookie.MaxAge)
+	log.Println("Cookie SameSite: ", cookie.SameSite)
+	log.Println("Cookie Domain: ", cookie.Domain)
+	log.Println("Cookie HttpOnly: ", cookie.HttpOnly)
+	log.Println("Cookie Secure: ", cookie.Secure)
+
+	return cookie
 }
 
 func (j *Auth) GetExpiredRefreshCookie() *http.Cookie {
@@ -164,7 +178,7 @@ func (j *Auth) GetAndVerifyHeaderToken(w http.ResponseWriter, r *http.Request) (
 
 	// checks if the token is expired by examining the error returned from ParseWithClaims.
 	if err != nil {
-		log.Println("Token error: ", err);
+		log.Println("Token error: ", err)
 		if strings.HasPrefix(err.Error(), "token is expired by") {
 			log.Println("Expired token")
 			return "", nil, errors.New("Expired token")
