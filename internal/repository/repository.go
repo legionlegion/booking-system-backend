@@ -8,6 +8,7 @@ import (
 type DatabaseRepo interface {
 	Connection() *sql.DB
 	AllBookings() ([]*models.SubmittedBooking, error)
+	UserBookings(username string) ([]*models.SubmittedBooking, error)
 	TwoWeekBookings() ([]*models.SubmittedBooking, error)
 	ManageBookings(username string) ([]*models.SubmittedBooking, error)
 	InsertBookingRequest(booking models.Booking) error

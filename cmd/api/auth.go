@@ -103,15 +103,15 @@ func (j *Auth) GetRefreshCookie(refreshToken string) *http.Cookie {
 		Secure:   true,
 	}
 
-	log.Println("Cookie Name: ", cookie.Name)
-	log.Println("Cookie Path: ", cookie.Path)
-	log.Println("Cookie Value: ", cookie.Value)
-	log.Println("Cookie Expires: ", cookie.Expires)
-	log.Println("Cookie MaxAge: ", cookie.MaxAge)
-	log.Println("Cookie SameSite: ", cookie.SameSite)
-	log.Println("Cookie Domain: ", cookie.Domain)
-	log.Println("Cookie HttpOnly: ", cookie.HttpOnly)
-	log.Println("Cookie Secure: ", cookie.Secure)
+	// log.Println("Cookie Name: ", cookie.Name)
+	// log.Println("Cookie Path: ", cookie.Path)
+	// log.Println("Cookie Value: ", cookie.Value)
+	// log.Println("Cookie Expires: ", cookie.Expires)
+	// log.Println("Cookie MaxAge: ", cookie.MaxAge)
+	// log.Println("Cookie SameSite: ", cookie.SameSite)
+	// log.Println("Cookie Domain: ", cookie.Domain)
+	// log.Println("Cookie HttpOnly: ", cookie.HttpOnly)
+	// log.Println("Cookie Secure: ", cookie.Secure)
 
 	return cookie
 }

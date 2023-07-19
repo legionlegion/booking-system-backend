@@ -188,6 +188,58 @@ func (m *PostgresDBRepo) ManageBookings(username string) ([]*models.SubmittedBoo
 	return bookings, nil
 }
 
+func (m *PostgresDBRepo) UserBookings(username string) ([]*models.SubmittedBooking, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
+	defer cancel()
+
+	var query string
+	var rows *sql.Rows
+
+	// get bookings that belong to user only
+	query = `
+		select 
+			id, username, name, start_date, end_date, unit_number, 
+			start_time, end_time, purpose, facility 
+		from 
+			approvedbookings
+		where
+			username = $1
+		order by 
+			id
+		`
+	rows, err := m.DB.QueryContext(ctx, query, username)
+
+	if err != nil {
+		return nil, err
+	}
+
+	defer rows.Close()
+
+	var bookings []*models.SubmittedBooking
+	for rows.Next() {
+		var booking models.SubmittedBooking
+		err := rows.Scan(
+			&booking.ID,
+			&booking.Username,
+			&booking.Name,
+			&booking.StartDate,
+			&booking.EndDate,
+			&booking.UnitNumber,
+			&booking.StartTime,
+			&booking.EndTime,
+			&booking.Purpose,
+			&booking.Facility,
+		)
+
+		if err != nil {
+			return nil, err
+		}
+
+		bookings = append(bookings, &booking)
+	}
+	return bookings, nil
+}
+
 func (m *PostgresDBRepo) InsertBookingRequest(booking models.Booking) error {
 	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
 	defer cancel()

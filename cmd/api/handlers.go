@@ -216,10 +216,10 @@ func (app *application) register(w http.ResponseWriter, r *http.Request) {
 
 func (app *application) refreshToken(w http.ResponseWriter, r *http.Request) {
 	for _, cookie := range r.Cookies() {
-		log.Println("Request Host: ", r.Host)
-		log.Println("Request Path: ", r.URL.Path)
-		log.Println("Cookie name: ", cookie.Name)
-		log.Println("App cookie name: ", app.auth.CookieName)
+		// log.Println("Request Host: ", r.Host)
+		// log.Println("Request Path: ", r.URL.Path)
+		// log.Println("Cookie name: ", cookie.Name)
+		// log.Println("App cookie name: ", app.auth.CookieName)
 		if cookie.Name == app.auth.CookieName {
 			log.Println("Cookie name passed")
 			claims := &Claims{}
@@ -285,6 +285,16 @@ func (app *application) BookingManagement(w http.ResponseWriter, r *http.Request
 	bookings, err := app.DB.ManageBookings(username)
 	if err != nil {
 		fmt.Println(err)
+		return
+	}
+
+	_ = app.writeJSON(w, http.StatusOK, bookings)
+}
+
+func (app *application) UserBookings(w http.ResponseWriter, r *http.Request) {
+	username := r.Header.Get("Username")
+	bookings, err := app.DB.UserBookings(username)
+	if err != nil {
 		return
 	}
 
