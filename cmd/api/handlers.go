@@ -66,14 +66,20 @@ func (app *application) InsertBooking(w http.ResponseWriter, r *http.Request) {
 }
 
 func (app *application) ApproveBooking(w http.ResponseWriter, r *http.Request) {
-	var booking models.SubmittedBooking
+	var booking models.RequestedBooking
 
 	err := app.readJSON(w, r, &booking)
 	if err != nil {
 		app.errorJSON(w, err)
 		return
 	}
-	err = app.DB.ApproveBookingRequest(booking)
+
+	if booking.Recurring {
+		err = app.DB.ApproveBookingRequest(booking)
+	} else {
+		err = app.DB.ApproveBookingRequest(booking)
+	}
+
 	if err != nil {
 		app.errorJSON(w, err)
 		return
@@ -146,14 +152,14 @@ func (app *application) authenticate(w http.ResponseWriter, r *http.Request) {
 	// validate user against database
 	user, err := app.DB.GetUserByName(requestPayload.Username)
 	if err != nil {
-		app.errorJSON(w, errors.New("Username does not exist"), http.StatusBadRequest)
+		app.errorJSON(w, errors.New("username does not exist"), http.StatusBadRequest)
 		return
 	}
 
 	// check password
 	valid, err := user.PasswordMatches(requestPayload.Password)
 	if err != nil || !valid {
-		app.errorJSON(w, errors.New("Invalid credentials"), http.StatusBadRequest)
+		app.errorJSON(w, errors.New("invalid credentials"), http.StatusBadRequest)
 		return
 	}
 
@@ -192,7 +198,7 @@ func (app *application) register(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// register user
-	user, err := app.DB.RegisterUser(requestPayload.Username, requestPayload.Password, requestPayload.Admin)
+	user, _ := app.DB.RegisterUser(requestPayload.Username, requestPayload.Password, requestPayload.Admin)
 
 	// create a jwt user
 	u := jwtUser{

@@ -142,7 +142,7 @@ func (j *Auth) GetAndVerifyHeaderToken(w http.ResponseWriter, r *http.Request) (
 	// checks whether the Authorization header exists and is in the correct format.
 	if authHeader == "" {
 		log.Println("No auth header")
-		return "", nil, errors.New("No auth header")
+		return "", nil, errors.New("no auth header")
 	}
 
 	// Authorization header should have the format Bearer JWTtoken, so it's split by spaces and checks if the first part is Bearer.
@@ -150,14 +150,14 @@ func (j *Auth) GetAndVerifyHeaderToken(w http.ResponseWriter, r *http.Request) (
 	if len(headerParts) != 2 {
 		log.Println("Auth header length incorrect")
 		log.Println("Header parts: ", headerParts)
-		return "", nil, errors.New("Auth header length incorrect")
+		return "", nil, errors.New("auth header length incorrect")
 	}
 
 	// checks if the first part is Bearer.
 	if headerParts[0] != "Bearer" {
 		log.Println("Invalid auth header")
 		log.Println("Header: ", headerParts[0])
-		return "", nil, errors.New("Invalid auth header")
+		return "", nil, errors.New("invalid auth header")
 	}
 
 	// JWT token is extracted from the Authorization header.
@@ -171,7 +171,7 @@ func (j *Auth) GetAndVerifyHeaderToken(w http.ResponseWriter, r *http.Request) (
 		if !ok {
 			log.Println("Unexpected signing mathod")
 			log.Println("Method: ", token.Header["alg"])
-			return nil, fmt.Errorf("Unexpected signing method: %v", token.Header["alg"])
+			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 		}
 		return []byte(j.Secret), nil
 	})
@@ -181,7 +181,7 @@ func (j *Auth) GetAndVerifyHeaderToken(w http.ResponseWriter, r *http.Request) (
 		log.Println("Token error: ", err)
 		if strings.HasPrefix(err.Error(), "token is expired by") {
 			log.Println("Expired token")
-			return "", nil, errors.New("Expired token")
+			return "", nil, errors.New("expired token")
 		}
 		return "", nil, err
 	}
@@ -191,7 +191,7 @@ func (j *Auth) GetAndVerifyHeaderToken(w http.ResponseWriter, r *http.Request) (
 	if claims.Issuer != j.Issuer {
 		log.Println("Issuer: ", claims.Issuer)
 		log.Println("Expected issuer: ", j.Issuer)
-		return "", nil, errors.New("Invalid issuer")
+		return "", nil, errors.New("invalid issuer")
 	}
 
 	return token, claims, nil

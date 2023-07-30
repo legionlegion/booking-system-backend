@@ -1,6 +1,4 @@
---
 -- PostgreSQL database dump
---
 
 -- Dumped from database version 14.5 (Debian 14.5-1.pgdg110+1)
 -- Dumped by pg_dump version 14.5 (Homebrew)
@@ -40,6 +38,8 @@ CREATE TABLE public.RequestedBookings (
   end_time TIMESTAMPTZ NOT NULL,
   purpose TEXT,
   facility TEXT,
+  is_recurring BOOLEAN DEFAULT FALSE,  -- New is_recurring column
+  recurring_weeks INT,
   FOREIGN KEY (username) REFERENCES public.Users (username)
 );
 
@@ -58,6 +58,19 @@ CREATE TABLE public.ApprovedBookings (
   FOREIGN KEY (username) REFERENCES public.Users (username)
 );
 
---
+-- Create the RecurringBookings table
+CREATE TABLE public.RecurringBookings (
+  id SERIAL PRIMARY KEY,
+  username VARCHAR(255) NOT NULL,
+  name VARCHAR(255) NOT NULL,
+  start_date DATE NOT NULL,
+  end_date DATE NOT NULL,
+  unit_number VARCHAR(255) NOT NULL,
+  start_time TIMESTAMPTZ NOT NULL,
+  end_time TIMESTAMPTZ NOT NULL,
+  purpose TEXT,
+  facility TEXT,
+  FOREIGN KEY (username) REFERENCES public.Users (username)
+);
+
 -- PostgreSQL database dump complete
---

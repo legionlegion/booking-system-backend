@@ -5,6 +5,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"log"
 	"time"
 
 	"golang.org/x/crypto/bcrypt"
@@ -243,11 +244,17 @@ func (m *PostgresDBRepo) InsertBookingRequest(booking models.Booking) error {
 
 	// check for overlaps, WHERE clause covers all overlap scenarios
 	checkOverlapStmt := `
-	SELECT id
-	FROM approvedbookings
-	WHERE 
-		($1 < end_time AND $2 > start_time)
-	LIMIT 1;
+		SELECT id
+		FROM (
+			SELECT id, start_time, end_time
+			FROM approvedbookings
+			UNION ALL
+			SELECT id, start_time, end_time
+			FROM recurringbookings
+		) AS all_bookings
+		WHERE 
+			($1 < end_time AND $2 > start_time)
+		LIMIT 1;
 	`
 
 	var overlapID int
@@ -258,13 +265,13 @@ func (m *PostgresDBRepo) InsertBookingRequest(booking models.Booking) error {
 
 	// If overlap found, return error
 	if err != sql.ErrNoRows {
-		return errors.New("Booking time overlaps with an existing booking")
+		return errors.New("booking time overlaps with an existing booking")
 	}
 
 	// If no overlaps, proceed with insertion
 	stmt := `insert into requestedbookings (username, name, start_date, end_date, unit_number, start_time,
-		end_time, purpose, facility)
-		values ($1, $2, $3, $4, $5, $6, $7, $8, $9) returning id`
+		end_time, purpose, facility, is_recurring, recurring_weeks)
+		values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) returning id`
 
 	var newID int
 
@@ -278,6 +285,8 @@ func (m *PostgresDBRepo) InsertBookingRequest(booking models.Booking) error {
 		booking.EndTime,
 		booking.Purpose,
 		booking.Facility,
+		booking.Recurring,
+		booking.RecurringWeeks,
 	).Scan(&newID)
 
 	if err != nil {
@@ -287,18 +296,24 @@ func (m *PostgresDBRepo) InsertBookingRequest(booking models.Booking) error {
 	return nil
 }
 
-func (m *PostgresDBRepo) ApproveBookingRequest(booking models.SubmittedBooking) error {
+func (m *PostgresDBRepo) ApproveBookingRequest(booking models.RequestedBooking) error {
 	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
 	defer cancel()
 
 	// check for overlaps, WHERE clause covers all overlap scenarios
 	checkOverlapStmt := `
 		SELECT id
-		FROM approvedbookings
+		FROM (
+			SELECT id, start_time, end_time
+			FROM approvedbookings
+			UNION ALL
+			SELECT id, start_time, end_time
+			FROM recurringbookings
+		) AS all_bookings
 		WHERE 
 			($1 < end_time AND $2 > start_time)
 		LIMIT 1;
-		`
+	`
 
 	var overlapID int
 	err := m.DB.QueryRowContext(ctx, checkOverlapStmt, booking.StartTime, booking.EndTime).Scan(&overlapID)
@@ -308,7 +323,7 @@ func (m *PostgresDBRepo) ApproveBookingRequest(booking models.SubmittedBooking) 
 
 	// If overlap found, return error
 	if err != sql.ErrNoRows {
-		return errors.New("Booking time overlaps with an existing booking")
+		return errors.New("booking time overlaps with an existing booking")
 	}
 	// If no overlaps, proceed with insertion
 	tx, err := m.DB.BeginTx(ctx, nil)
@@ -323,6 +338,85 @@ func (m *PostgresDBRepo) ApproveBookingRequest(booking models.SubmittedBooking) 
 	if err != nil {
 		_ = tx.Rollback()
 		return err
+	}
+
+	// Delete the booking from requestedbookings
+	deleteStmt := `DELETE FROM requestedbookings WHERE id = $1`
+	_, err = tx.ExecContext(ctx, deleteStmt, booking.ID)
+	if err != nil {
+		_ = tx.Rollback()
+		return err
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (m *PostgresDBRepo) ApproveRecurringBookingRequest(booking models.RequestedBooking) error {
+	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
+	defer cancel()
+
+	// check for overlaps, WHERE clause covers all overlap scenarios
+	checkOverlapStmt := `
+		SELECT id
+		FROM (
+			SELECT id, start_time, end_time
+			FROM approvedbookings
+			UNION ALL
+			SELECT id, start_time, end_time
+			FROM recurringbookings
+		) AS all_bookings
+		WHERE 
+			($1 < end_time AND $2 > start_time)
+		LIMIT 1;
+		`
+
+	tx, err := m.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	layout := "2006-01-02 15:04:05-07"
+	for week := 0; week < booking.RecurringWeeks; week++ {
+		// Parse the start and end times to time.Time
+		startTime, err := time.Parse(layout, booking.StartTime)
+		if err != nil {
+			log.Print("Error parsing start time: ", err)
+			_ = tx.Rollback()
+			return err
+		}
+		endTime, err := time.Parse(layout, booking.EndTime)
+		if err != nil {
+			log.Print("Error parsing end time: ", err)
+			_ = tx.Rollback()
+			return err
+		}
+
+		// Calculate the start and end time for this booking
+		startTime = startTime.Add(time.Duration(week) * 7 * 24 * time.Hour)
+		endTime = endTime.Add(time.Duration(week) * 7 * 24 * time.Hour)
+		// Check for overlaps
+		var overlapID int
+		err = m.DB.QueryRowContext(ctx, checkOverlapStmt, startTime, endTime).Scan(&overlapID)
+		if err != nil && err != sql.ErrNoRows {
+			log.Print("Overlap check error: ", err)
+			_ = tx.Rollback()
+			return err
+		}
+
+		if err == sql.ErrNoRows {
+			// If there is no overlap, insert the booking into the recurringbookings table
+			insertStmt := `INSERT INTO recurringbookings (username, name, start_date, end_date, unit_number, start_time, end_time, purpose, facility)
+				VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`
+			_, err = tx.ExecContext(ctx, insertStmt, booking.Username, booking.Name, startTime, endTime, booking.UnitNumber, startTime, endTime, booking.Purpose, booking.Facility)
+			if err != nil {
+				_ = tx.Rollback()
+				return err
+			}
+		}
 	}
 
 	// Delete the booking from requestedbookings

@@ -12,7 +12,8 @@ type DatabaseRepo interface {
 	TwoWeekBookings() ([]*models.SubmittedBooking, error)
 	ManageBookings(username string) ([]*models.SubmittedBooking, error)
 	InsertBookingRequest(booking models.Booking) error
-	ApproveBookingRequest(booking models.SubmittedBooking) error
+	ApproveBookingRequest(booking models.RequestedBooking) error
+	// ApproveRecurringBookingRequest(booking models.RequestedBooking) error
 	DeleteBookingRequest(booking models.SubmittedBooking) error
 	DeleteApprovedBooking(booking models.SubmittedBooking) error
 	GetUserByName(username string) (*models.User, error)
