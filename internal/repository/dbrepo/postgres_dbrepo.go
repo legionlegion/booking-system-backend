@@ -32,7 +32,7 @@ func (m *PostgresDBRepo) AllBookings() ([]*models.SubmittedBooking, error) {
 	from 
 		approvedbookings 
 	order by 
-		id
+		start_date ASC, start_time ASC
 	`
 
 	rows, err := m.DB.QueryContext(ctx, query)
@@ -78,10 +78,10 @@ func (m *PostgresDBRepo) TwoWeekBookings() ([]*models.SubmittedBooking, error) {
 	from 
 		approvedbookings 
 	where 
-		start_time >= date_trunc('week', current_date) 
-		and end_time < date_trunc('week', current_date) + interval '2 weeks'
+		start_date >= date_trunc('week', current_date) 
+		and end_date < date_trunc('week', current_date) + interval '2 weeks'
 	order by 
-		id
+		start_date ASC, start_time ASC
 	`
 
 	rows, err := m.DB.QueryContext(ctx, query)
@@ -113,110 +113,82 @@ func (m *PostgresDBRepo) TwoWeekBookings() ([]*models.SubmittedBooking, error) {
 
 		bookings = append(bookings, &booking)
 	}
+	log.Println("Bookings: ", bookings)
 	return bookings, nil
 }
 
-func (m *PostgresDBRepo) ManageBookings(username string) ([]*models.SubmittedBooking, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
-	defer cancel()
-
+func (m *PostgresDBRepo) ManageBookings(username string) ([]*models.SubmittedBooking, []*models.SubmittedBooking, []*models.RequestedBooking, error) {
 	user, err := m.GetUserByName(username)
 	if err != nil {
-		return nil, err
+		return nil, nil, nil, err
 	}
 
-	var query string
-	var rows *sql.Rows
 	if user.IsAdmin {
 		// get all bookings
-		query = `
-		select 
-			id, username, name, start_date, end_date, unit_number, 
-			start_time, end_time, purpose, facility 
-		from 
-			requestedbookings 
-		order by 
-			id
-		`
-		rows, err = m.DB.QueryContext(ctx, query)
+		return m.AdminBookings()
 	} else {
 		// get bookings that belong to user only
-		query = `
-		select 
-			id, username, name, start_date, end_date, unit_number, 
-			start_time, end_time, purpose, facility 
-		from 
-			requestedbookings
-		where
-			username = $1
-		order by 
-			id
-		`
-		rows, err = m.DB.QueryContext(ctx, query, username)
+		return m.UserBookings(username)
 	}
-
-	if err != nil {
-		return nil, err
-	}
-
-	defer rows.Close()
-
-	var bookings []*models.SubmittedBooking
-	for rows.Next() {
-		var booking models.SubmittedBooking
-		err := rows.Scan(
-			&booking.ID,
-			&booking.Username,
-			&booking.Name,
-			&booking.StartDate,
-			&booking.EndDate,
-			&booking.UnitNumber,
-			&booking.StartTime,
-			&booking.EndTime,
-			&booking.Purpose,
-			&booking.Facility,
-		)
-
-		if err != nil {
-			return nil, err
-		}
-
-		bookings = append(bookings, &booking)
-	}
-	return bookings, nil
 }
 
-func (m *PostgresDBRepo) UserBookings(username string) ([]*models.SubmittedBooking, error) {
+func (m *PostgresDBRepo) AdminBookings() ([]*models.SubmittedBooking, []*models.SubmittedBooking, []*models.RequestedBooking, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
 	defer cancel()
 
-	var query string
-	var rows *sql.Rows
-
-	// get bookings that belong to user only
-	query = `
-		select 
+	// Query for recurring
+	recurringQuery := `
+		SELECT 
 			id, username, name, start_date, end_date, unit_number, 
 			start_time, end_time, purpose, facility 
-		from 
-			approvedbookings
-		where
-			username = $1
-		order by 
-			id
-		`
-	rows, err := m.DB.QueryContext(ctx, query, username)
-
+		FROM 
+			recurringbookings
+		ORDER BY 
+			start_date ASC, start_time ASC
+	`
+	recurringRows, err := m.DB.QueryContext(ctx, recurringQuery)
 	if err != nil {
-		return nil, err
+		return nil, nil, nil, err
 	}
+	defer recurringRows.Close()
 
-	defer rows.Close()
+	// Query for approvedbookings
+	approvedQuery := `
+		SELECT 
+			id, username, name, start_date, end_date, unit_number, 
+			start_time, end_time, purpose, facility 
+		FROM 
+			approvedbookings
+		ORDER BY 
+			start_date ASC, start_time ASC
+	`
+	approvedRows, err := m.DB.QueryContext(ctx, approvedQuery)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	defer approvedRows.Close()
 
-	var bookings []*models.SubmittedBooking
-	for rows.Next() {
+	// Query for requestedbookings
+	requestedQuery := `
+		SELECT 
+			id, username, name, start_date, end_date, unit_number, 
+			start_time, end_time, purpose, facility, is_recurring, recurring_weeks 
+		FROM 
+			requestedbookings
+		ORDER BY 
+			start_date ASC, start_time ASC
+	`
+	requestedRows, err := m.DB.QueryContext(ctx, requestedQuery)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	defer requestedRows.Close()
+
+	// Scan recurring bookings
+	var recurringbookings []*models.SubmittedBooking
+	for recurringRows.Next() {
 		var booking models.SubmittedBooking
-		err := rows.Scan(
+		err := recurringRows.Scan(
 			&booking.ID,
 			&booking.Username,
 			&booking.Name,
@@ -228,14 +200,188 @@ func (m *PostgresDBRepo) UserBookings(username string) ([]*models.SubmittedBooki
 			&booking.Purpose,
 			&booking.Facility,
 		)
-
 		if err != nil {
-			return nil, err
+			return nil, nil, nil, err
 		}
-
-		bookings = append(bookings, &booking)
+		recurringbookings = append(recurringbookings, &booking)
 	}
-	return bookings, nil
+
+	// Scan approved bookings
+	var approvedBookings []*models.SubmittedBooking
+	for approvedRows.Next() {
+		var booking models.SubmittedBooking
+		err := approvedRows.Scan(
+			&booking.ID,
+			&booking.Username,
+			&booking.Name,
+			&booking.StartDate,
+			&booking.EndDate,
+			&booking.UnitNumber,
+			&booking.StartTime,
+			&booking.EndTime,
+			&booking.Purpose,
+			&booking.Facility,
+		)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		approvedBookings = append(approvedBookings, &booking)
+	}
+
+	// Scan requested bookings
+	var requestedBookings []*models.RequestedBooking
+	for requestedRows.Next() {
+		var booking models.RequestedBooking
+		err := requestedRows.Scan(
+			&booking.ID,
+			&booking.Username,
+			&booking.Name,
+			&booking.StartDate,
+			&booking.EndDate,
+			&booking.UnitNumber,
+			&booking.StartTime,
+			&booking.EndTime,
+			&booking.Purpose,
+			&booking.Facility,
+			&booking.Recurring,
+			&booking.RecurringWeeks,
+		)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		requestedBookings = append(requestedBookings, &booking)
+	}
+
+	return recurringbookings, approvedBookings, requestedBookings, nil
+}
+
+func (m *PostgresDBRepo) UserBookings(username string) ([]*models.SubmittedBooking, []*models.SubmittedBooking, []*models.RequestedBooking, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
+	defer cancel()
+
+	// Query for recurring
+	recurringQuery := `
+		SELECT 
+			id, username, name, start_date, end_date, unit_number, 
+			start_time, end_time, purpose, facility 
+		FROM 
+			recurringbookings
+		WHERE
+			username = $1
+		ORDER BY 
+			start_date ASC, start_time ASC
+	`
+	recurringRows, err := m.DB.QueryContext(ctx, recurringQuery, username)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	defer recurringRows.Close()
+
+	// Query for approvedbookings
+	approvedQuery := `
+		SELECT 
+			id, username, name, start_date, end_date, unit_number, 
+			start_time, end_time, purpose, facility 
+		FROM 
+			approvedbookings
+		WHERE
+			username = $1
+		ORDER BY 
+			start_date ASC, start_time ASC
+	`
+	approvedRows, err := m.DB.QueryContext(ctx, approvedQuery, username)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	defer approvedRows.Close()
+
+	// Query for requestedbookings
+	requestedQuery := `
+		SELECT 
+			id, username, name, start_date, end_date, unit_number, 
+			start_time, end_time, purpose, facility, is_recurring, recurring_weeks 
+		FROM 
+			requestedbookings
+		WHERE
+			username = $1
+		ORDER BY 
+			start_date ASC, start_time ASC
+	`
+	requestedRows, err := m.DB.QueryContext(ctx, requestedQuery, username)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	defer requestedRows.Close()
+
+	// Scan recurring bookings
+	var recurringbookings []*models.SubmittedBooking
+	for recurringRows.Next() {
+		var booking models.SubmittedBooking
+		err := recurringRows.Scan(
+			&booking.ID,
+			&booking.Username,
+			&booking.Name,
+			&booking.StartDate,
+			&booking.EndDate,
+			&booking.UnitNumber,
+			&booking.StartTime,
+			&booking.EndTime,
+			&booking.Purpose,
+			&booking.Facility,
+		)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		recurringbookings = append(recurringbookings, &booking)
+	}
+
+	// Scan approved bookings
+	var approvedBookings []*models.SubmittedBooking
+	for approvedRows.Next() {
+		var booking models.SubmittedBooking
+		err := approvedRows.Scan(
+			&booking.ID,
+			&booking.Username,
+			&booking.Name,
+			&booking.StartDate,
+			&booking.EndDate,
+			&booking.UnitNumber,
+			&booking.StartTime,
+			&booking.EndTime,
+			&booking.Purpose,
+			&booking.Facility,
+		)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		approvedBookings = append(approvedBookings, &booking)
+	}
+
+	// Scan requested bookings
+	var requestedBookings []*models.RequestedBooking
+	for requestedRows.Next() {
+		var booking models.RequestedBooking
+		err := requestedRows.Scan(
+			&booking.ID,
+			&booking.Username,
+			&booking.Name,
+			&booking.StartDate,
+			&booking.EndDate,
+			&booking.UnitNumber,
+			&booking.StartTime,
+			&booking.EndTime,
+			&booking.Purpose,
+			&booking.Facility,
+			&booking.Recurring,
+			&booking.RecurringWeeks,
+		)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		requestedBookings = append(requestedBookings, &booking)
+	}
+
+	return recurringbookings, approvedBookings, requestedBookings, nil
 }
 
 func (m *PostgresDBRepo) InsertBookingRequest(booking models.Booking) error {
@@ -379,7 +525,8 @@ func (m *PostgresDBRepo) ApproveRecurringBookingRequest(booking models.Requested
 	if err != nil {
 		return err
 	}
-	layout := "2006-01-02 15:04:05-07"
+	layout := "2006-01-02T15:04:05-07:00"
+
 	for week := 0; week < booking.RecurringWeeks; week++ {
 		// Parse the start and end times to time.Time
 		startTime, err := time.Parse(layout, booking.StartTime)

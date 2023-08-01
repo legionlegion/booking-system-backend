@@ -34,13 +34,26 @@ func (app *application) Home(w http.ResponseWriter, r *http.Request) {
 	_ = app.writeJSON(w, http.StatusOK, bookings)
 }
 
-func (app *application) AllBookings(w http.ResponseWriter, r *http.Request) {
-	bookings, err := app.DB.AllBookings()
+func (app *application) BookingManagement(w http.ResponseWriter, r *http.Request) {
+	username := r.Header.Get("Username")
+	recurringbookings, approvedbookings, requestedbookings, err := app.DB.ManageBookings(username)
 	if err != nil {
+		// handle the error properly, return some http status, log the error etc.
+		fmt.Println(err)
 		return
 	}
 
-	_ = app.writeJSON(w, http.StatusOK, bookings)
+	data := map[string]interface{}{
+		"recurringbookings":  recurringbookings,
+		"approvedbookings": approvedbookings,
+		"requestedbookings": requestedbookings,
+	}
+
+	if err := app.writeJSON(w, http.StatusOK, data); err != nil {
+		// handle the error, log it, return an error http status etc.
+		fmt.Println(err)
+		return
+	}
 }
 
 func (app *application) InsertBooking(w http.ResponseWriter, r *http.Request) {
@@ -67,7 +80,7 @@ func (app *application) InsertBooking(w http.ResponseWriter, r *http.Request) {
 
 func (app *application) ApproveBooking(w http.ResponseWriter, r *http.Request) {
 	var booking models.RequestedBooking
-
+	log.Println("Booking: ", booking)
 	err := app.readJSON(w, r, &booking)
 	if err != nil {
 		app.errorJSON(w, err)
@@ -75,7 +88,7 @@ func (app *application) ApproveBooking(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if booking.Recurring {
-		err = app.DB.ApproveBookingRequest(booking)
+		err = app.DB.ApproveRecurringBookingRequest(booking)
 	} else {
 		err = app.DB.ApproveBookingRequest(booking)
 	}
@@ -284,25 +297,4 @@ func (app *application) refreshToken(w http.ResponseWriter, r *http.Request) {
 func (app *application) logout(w http.ResponseWriter, r *http.Request) {
 	http.SetCookie(w, app.auth.GetExpiredRefreshCookie())
 	w.WriteHeader(http.StatusAccepted)
-}
-
-func (app *application) BookingManagement(w http.ResponseWriter, r *http.Request) {
-	username := r.Header.Get("Username")
-	bookings, err := app.DB.ManageBookings(username)
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-
-	_ = app.writeJSON(w, http.StatusOK, bookings)
-}
-
-func (app *application) UserBookings(w http.ResponseWriter, r *http.Request) {
-	username := r.Header.Get("Username")
-	bookings, err := app.DB.UserBookings(username)
-	if err != nil {
-		return
-	}
-
-	_ = app.writeJSON(w, http.StatusOK, bookings)
 }
