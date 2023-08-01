@@ -33,6 +33,7 @@ func (app *application) routes() http.Handler {
 		mux.Get("/booking-management", app.BookingManagement)
 		mux.Put("/delete-pending", app.DeletePending)
 		mux.Put("/delete-approved", app.DeleteApproved)
+		mux.Put("/delete-recurring", app.DeleteRecurring)
 
 	})
 

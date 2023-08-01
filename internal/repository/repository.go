@@ -15,8 +15,9 @@ type DatabaseRepo interface {
 	InsertBookingRequest(booking models.Booking) error
 	ApproveBookingRequest(booking models.RequestedBooking) error
 	ApproveRecurringBookingRequest(booking models.RequestedBooking) error
-	DeleteBookingRequest(booking models.SubmittedBooking) error
+	DeleteBookingRequest(booking models.RequestedBooking) error
 	DeleteApprovedBooking(booking models.SubmittedBooking) error
+	DeleteRecurringBooking(booking models.SubmittedBooking) error
 	GetUserByName(username string) (*models.User, error)
 	RegisterUser(username string, password string, admin bool) (*models.User, error)
 }

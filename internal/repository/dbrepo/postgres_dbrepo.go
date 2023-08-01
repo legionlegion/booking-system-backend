@@ -72,16 +72,25 @@ func (m *PostgresDBRepo) TwoWeekBookings() ([]*models.SubmittedBooking, error) {
 	defer cancel()
 
 	query := `
-	select 
-		id, username, name, start_date, end_date, unit_number, 
-		start_time, end_time, purpose, facility 
-	from 
-		approvedbookings 
-	where 
-		start_date >= date_trunc('week', current_date) 
-		and end_date < date_trunc('week', current_date) + interval '2 weeks'
-	order by 
-		start_date ASC, start_time ASC
+		SELECT 
+				id, username, name, start_date, end_date, unit_number, 
+				start_time, end_time, purpose, facility 
+		FROM 
+				approvedbookings 
+		WHERE 
+				start_date >= date_trunc('week', current_date) 
+				AND end_date < date_trunc('week', current_date) + interval '2 weeks'
+		UNION
+		SELECT 
+				id, username, name, start_date, end_date, unit_number, 
+				start_time, end_time, purpose, facility 
+		FROM 
+				recurringbookings 
+		WHERE 
+				start_date >= date_trunc('week', current_date) 
+				AND end_date < date_trunc('week', current_date) + interval '2 weeks'
+		ORDER BY 
+				start_date ASC, start_time ASC
 	`
 
 	rows, err := m.DB.QueryContext(ctx, query)
@@ -582,7 +591,7 @@ func (m *PostgresDBRepo) ApproveRecurringBookingRequest(booking models.Requested
 	return nil
 }
 
-func (m *PostgresDBRepo) DeleteBookingRequest(booking models.SubmittedBooking) error {
+func (m *PostgresDBRepo) DeleteBookingRequest(booking models.RequestedBooking) error {
 	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
 	defer cancel()
 
@@ -618,6 +627,31 @@ func (m *PostgresDBRepo) DeleteApprovedBooking(booking models.SubmittedBooking) 
 
 	// Delete the booking from requestedbookings
 	deleteStmt := `DELETE FROM approvedbookings WHERE id = $1`
+	_, err = tx.ExecContext(ctx, deleteStmt, booking.ID)
+	if err != nil {
+		tx.Rollback() // Rollback in case of any error during the delete operation
+		return err
+	}
+
+	err = tx.Commit() // Commit the transaction
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (m *PostgresDBRepo) DeleteRecurringBooking(booking models.SubmittedBooking) error {
+	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
+	defer cancel()
+
+	tx, err := m.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+
+	// Delete the booking from requestedbookings
+	deleteStmt := `DELETE FROM recurringbookings WHERE id = $1`
 	_, err = tx.ExecContext(ctx, deleteStmt, booking.ID)
 	if err != nil {
 		tx.Rollback() // Rollback in case of any error during the delete operation

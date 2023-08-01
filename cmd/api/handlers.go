@@ -107,7 +107,7 @@ func (app *application) ApproveBooking(w http.ResponseWriter, r *http.Request) {
 }
 
 func (app *application) DeletePending(w http.ResponseWriter, r *http.Request) {
-	var booking models.SubmittedBooking
+	var booking models.RequestedBooking
 
 	err := app.readJSON(w, r, &booking)
 	if err != nil {
@@ -149,6 +149,29 @@ func (app *application) DeleteApproved(w http.ResponseWriter, r *http.Request) {
 
 	app.writeJSON(w, http.StatusAccepted, resp)
 }
+
+func (app *application) DeleteRecurring(w http.ResponseWriter, r *http.Request) {
+	var booking models.SubmittedBooking
+
+	err := app.readJSON(w, r, &booking)
+	if err != nil {
+		app.errorJSON(w, err)
+		return
+	}
+	err = app.DB.DeleteRecurringBooking(booking)
+	if err != nil {
+		app.errorJSON(w, err)
+		return
+	}
+
+	resp := JSONResponse{
+		Error:   false,
+		Message: "Booking requested",
+	}
+
+	app.writeJSON(w, http.StatusAccepted, resp)
+}
+
 
 func (app *application) authenticate(w http.ResponseWriter, r *http.Request) {
 	// read json payload
